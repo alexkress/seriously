@@ -61,19 +61,33 @@ self._key_ = (_value_); \
     return self;
 }
 
-- (void)start {
-    if (self.isCanceled || self.isFinished) return;
-
-    if (![NSThread isMainThread]) {
-        [self performSelectorOnMainThread:@selector(start) withObject:nil waitUntilDone:NO];
-        return;
-    }
-
+- (void)main {
+	
+	if (self.isCanceled || self.isFinished) return;
+	
     KVO_SET(isExecuting, YES);
 	
-    _connection = [[NSURLConnection alloc] initWithRequest:_urlRequest delegate:self];
-    [_connection start];
+	NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
 
+	_connection = [[NSURLConnection alloc] initWithRequest:_urlRequest delegate:self];
+    [_connection start];
+	
+	if (![NSThread isMainThread]) {
+		//keep the thread alive while connection is executing
+		//without this NSURLConnection delegate is not called
+		NSRunLoop *theRL = [NSRunLoop currentRunLoop];
+		while ([self isExecuting] && [theRL runMode:NSDefaultRunLoopMode beforeDate:[NSDate distantFuture]]){
+			//nothing to do
+		}	
+	}
+	
+	[pool drain];
+	
+}
+
+- (void)start {
+	
+	[self main];
 }
 
 - (void)cancel {
